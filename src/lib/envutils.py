@@ -1,0 +1,2 @@
+
+YTSPLEET_DEFAULT_OUTPUT_FOLDER = 'yt-spleet-output'
