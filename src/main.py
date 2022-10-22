@@ -58,18 +58,22 @@ def ytspleet_single_file(args: YTSpleetSingleFileArgs):
 
     dirpath = os.path.dirname(mp3_path)
 
-    for src in glob.glob(f'{dirpath}/accompaniment_*'):
+    print(f"looking in dirpath: '{dirpath}'")
 
-        dest = path_replace_in_basename('^accompaniment_(.*)', r'acc_\1', src)
+    print(os.listdir(dirpath))
+    print("full glob: ", glob.glob(os.path.join(dirpath, '*')))
 
-        shutil.move(src, dest)
+    # Rename output files so that they're shorter and uniform.
+    for fname in os.listdir(dirpath):
+        new_fname = fname
+        if fname.startswith('accompaniment_'):
+            new_fname = re.sub('^accompaniment_(.*)', r'yts-acc_\1', fname)
+        elif fname.startswith('vocals_'):
+            new_fname = re.sub('^vocals_(.*)', r'yts-vox_\1', fname)
 
-    for src in glob.glob(f'{dirpath}/vocals*'):
-        print(f"vocals {src}")
-
-        dest = path_replace_in_basename('^vocals_(.*)', r'voc_\1', src)
-
-        shutil.move(src, dest)
+        if (fname != new_fname):
+            shutil.move(os.path.join(dirpath, fname),
+                        os.path.join(dirpath, new_fname))
 
 
 def main():
