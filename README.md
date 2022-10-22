@@ -1,10 +1,10 @@
 
 # Building
 ## For Non-Mac M1 Computers
-`docker build . -f Dockerfile.m1 --platform=linux/arm64/v8 -t yt-spleet:latest`
+TODO
 
 ## For Mac M1 Computers
-TODO
+`docker build . -f Dockerfile.m1 --platform=linux/arm64/v8 -t yt-spleet:latest`
 
 # TODO
 [ ] Setup Github Repo
