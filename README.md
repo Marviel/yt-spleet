@@ -8,7 +8,7 @@ TODO
 
 # TODO
 
-- [ ] Setup Github Repo
+- [x] Setup Github Repo
 - [ ] Setup Dockerhub
 - [ ] Setup Github Workflow to Push to Dockerhub
 - [ ] Create non-m1 Dockerfile, or use args to do same
