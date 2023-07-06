@@ -4,7 +4,11 @@
 TODO
 
 ## For Mac M1 Computers
-`docker build . -f Dockerfile.m1 --platform=linux/arm64/v8 -t yt-spleet:latest`
+`docker build . -f Dockerfile -t yt-spleet:latest`
+
+
+## Running
+`docker run -v OUTPUT_DIRECTORY_ON_YOUR_COMPUTER:/src/yt-spleet-output/ -it yt-spleet:latest --urls "URL_1" "URL_2" "URL_3"...`
 
 # TODO
 
@@ -12,3 +16,11 @@ TODO
 - [ ] Setup Dockerhub
 - [ ] Setup Github Workflow to Push to Dockerhub
 - [ ] Create non-m1 Dockerfile, or use args to do same
+
+
+- Jeff Buckley
+    - So Real
+    - Lover, You Should've Come Over
+- Beach Boys
+    - God Only Knows
+    

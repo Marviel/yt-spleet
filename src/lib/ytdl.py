@@ -28,7 +28,7 @@ def run_ytdl(video_path: str) -> Tuple[str, str]:
     ytdl_log("...getting video name")
     process = subprocess.Popen(
         [
-            '/init',
+            'youtube-dl',
             '-x',
             '-o',
             ytdl_full_format_string,
@@ -40,6 +40,7 @@ def run_ytdl(video_path: str) -> Tuple[str, str]:
     )
     filename_stdout, filename_stderr = process.communicate()
     print(f'filename_stdout {filename_stdout}')
+    print(f'filename_stderr {filename_stderr}')
 
     # We must make our output directory if it doesn't already exist, or youtube-dl will fail.
     output_abspath = os.path.abspath(filename_stdout)
@@ -53,7 +54,7 @@ def run_ytdl(video_path: str) -> Tuple[str, str]:
     ytdl_log("...fetching video and converting to mp3")
     process = subprocess.Popen(
         [
-            '/init',
+            'youtube-dl',
             '-x',
             '-o',
             ytdl_full_format_string,
