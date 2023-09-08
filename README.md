@@ -1,11 +1,7 @@
 
-# Building
-## For Non-Mac M1 Computers
-TODO
-
-## For Mac M1 Computers
+# Start Here
+## Building
 `docker build . -f Dockerfile -t yt-spleet:latest`
-
 
 ## Running
 `docker run -v OUTPUT_DIRECTORY_ON_YOUR_COMPUTER:/src/yt-spleet-output/ -it yt-spleet:latest --urls "URL_1" "URL_2" "URL_3"...`
