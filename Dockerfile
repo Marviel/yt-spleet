@@ -19,16 +19,17 @@ RUN apt update && apt install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone Facebook Demucs
-RUN git clone -b main --single-branch https://github.com/facebookresearch/demucs /lib/demucs
-WORKDIR /lib/demucs
+# DEMUCS
+# # Clone Facebook Demucs
+# RUN git clone -b main --single-branch https://github.com/facebookresearch/demucs /lib/demucs
+# WORKDIR /lib/demucs
 
-# Install dependencies
-RUN python3 -m pip install -e . --no-cache-dir
-# Run once to ensure demucs works and trigger the default model download
-RUN python3 -m demucs -d cpu test.mp3 
-# Cleanup output - we just used this to download the model
-RUN rm -r separated
+# # Install dependencies
+# RUN python3 -m pip install -e . --no-cache-dir
+# # Run once to ensure demucs works and trigger the default model download
+# RUN python3 -m demucs -d cpu test.mp3 
+# # Cleanup output - we just used this to download the model
+# RUN rm -r separated
 
 
 # # Install dependencies
