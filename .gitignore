@@ -2,3 +2,4 @@
 pretrained_models/*
 pretrained
 *.mp3
+.DS_Store

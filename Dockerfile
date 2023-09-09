@@ -56,6 +56,10 @@ COPY src/ /src
 # #RUN pip3 install --break-system-packages tensorflow-aarch64 -f https://tf.kmtea.eu/whl/stable.html
 
 WORKDIR /src/
+
+# Run a conversion so that we precache the results.
+RUN python3 /src/main.py --urls "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+
 ENTRYPOINT ["python3", "/src/main.py"]
 
 
