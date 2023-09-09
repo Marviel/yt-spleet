@@ -2,7 +2,7 @@
 
 ## Installation
 
-1. Install Docker
+1. Install Docker Desktop for your system
 2. (WINDOWS ONLY) Enable WSL2
 3. Open a terminal or command prompt window & pull this image from Dockerhub:
    `docker pull lukebechtel/yt-spleet:latest`
