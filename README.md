@@ -1,16 +1,27 @@
-# Start Here
+# YT-Spleet
 
-## Building
+## Installation
 
-`docker build . -f Dockerfile -t yt-spleet:latest`
+1. Install Docker
+2. (WINDOWS ONLY) Enable WSL2
+3. Open a terminal or command prompt window & pull this image from Dockerhub:
+   `docker pull lukebechtel/yt-spleet:latest`
 
 ## Running
 
-`docker run -v OUTPUT_DIRECTORY_ON_YOUR_COMPUTER:/src/yt-spleet-output/ -it yt-spleet:latest --urls "URL_1" "URL_2" "URL_3"...`
+1. Figure out what directory you want the files to be saved to on your computer
+   -- `YOUR_DIR`
+2. Run this command, replacing `YOUR_DIR` with that directory path, and
+   `YOUR_YOUTUBE_URL` with the URL you want to download and split.
+   `docker run -v YOUR_DIR:/src/yt-spleet-output/ -it lukebechtel/yt-spleet:latest --urls "YOUR_YOUTUBE_URL"`
+3. Wait for the download and split to finish. Normal sized (< 5 minute) files
+   should take less than one minute.
+4. Check the `YOUR_DIR` directory for the files. There will be a new folder for
+   each URL you passed in, and each folder will contain the split audio files,
+   along with the original.
 
-# TODO
+## Building locally (ADVANCED)
 
-- [x] Setup Github Repo
-- [ ] Setup Dockerhub
-- [ ] Setup Github Workflow to Push to Dockerhub
-- [ ] Create non-m1 Dockerfile, or use args to do same
+### Building
+
+`docker build . -f Dockerfile -t yt-spleet:latest`
