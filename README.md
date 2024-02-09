@@ -13,7 +13,7 @@
    -- `YOUR_DIR`
 2. Run this command, replacing `YOUR_DIR` with that directory path, and
    `YOUR_YOUTUBE_URL` with the URL you want to download and split.
-   `docker run -v YOUR_DIR:/src/yt-spleet-output/ -it lukebechtel/yt-spleet:latest --urls "YOUR_YOUTUBE_URL"`
+   `docker run -v YOUR_DIR:/src/yt-spleet-output/ --rm -it lukebechtel/yt-spleet:latest --urls "YOUR_YOUTUBE_URL"`
 3. Wait for the download and split to finish. Normal sized (< 5 minute) files
    should take less than one minute.
 4. Check the `YOUR_DIR` directory for the files. There will be a new folder for
