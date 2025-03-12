@@ -1,0 +1,38 @@
+{
+    "private": true,
+    "scripts": {},
+    "dependencies": {
+        "@commander-js/extra-typings": "11.0.0",
+        "@docker/sdk": "1.0.3",
+        "@lukebechtel/lab-ts-utils": "5.0.1",
+        "axios": "1.4.0",
+        "commander": "11.0.0",
+        "graphql": "16.8.0",
+        "lodash": "4.17.21",
+        "zod": "3.21.4"
+    },
+    "devDependencies": {
+        "@changesets/cli": "^2.26.1",
+        "@graphql-codegen/cli": "5.0.0",
+        "@graphql-codegen/typed-document-node": "5.0.1",
+        "@graphql-codegen/typescript-graphql-request": "5.0.0",
+        "@graphql-codegen/typescript-operations": "4.0.1",
+        "@parcel/watcher": "2.3.0",
+        "@types/lodash": "4.14.195",
+        "@types/node-fetch": "2.6.4",
+        "dotenv": "16.0.3",
+        "dotenv-cli": "7.2.1",
+        "eslint": "^7.32.0",
+        "eslint-config-custom": "*",
+        "prettier": "^2.5.1",
+        "ts-node": "10.9.1",
+        "turbo": "1.8.3",
+        "typescript": "5.1.6"
+    },
+    "name": "sdk-typescript",
+    "packageManager": "yarn@1.22.19",
+    "workspaces": [
+        "sdk-typescript/apps/*",
+        "sdk-typescript/packages/*"
+    ]
+}

@@ -1,5 +1,4 @@
-
-from typing import Tuple
+from typing import Tuple, Optional
 import re
 import subprocess
 import time
@@ -9,7 +8,12 @@ import sys
 import os
 from dataclasses import dataclass
 from lib.ytdl import run_ytdl
-from lib.spleeter import run_spleeter
+from lib.demucs_processor import run_demucs
+import argparse
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass
+import os
+import sys
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(SCRIPT_DIR))
 
@@ -43,60 +47,43 @@ def path_replace_in_basename(pattern: str, repl: str, full_path: str) -> str:
 @dataclass
 class YTSpleetSingleFileArgs:
     source_youtube_url: str
+    po_token: Optional[str] = None
 
 
 def ytspleet_single_file(args: YTSpleetSingleFileArgs):
     print("--------------------------")
     print("STARTING STEP 1: youtube-dl (YTDL)")
     print("--------------------------")
-    mp3_path = run_ytdl(args.source_youtube_url)
+    mp3_path = run_ytdl(args.source_youtube_url, args.po_token)
 
     print("--------------------------")
-    print("STARTING STEP 2: Spleeter")
+    print("STARTING STEP 2: Demucs")
     print("--------------------------")
-    run_spleeter(mp3_path)
+    output_dir, _ = run_demucs(mp3_path)
 
-    dirpath = os.path.dirname(mp3_path)
-
-    print(f"looking in dirpath: '{dirpath}'")
-
-    print(os.listdir(dirpath))
-    print("full glob: ", glob.glob(os.path.join(dirpath, '*')))
-
-    # Rename output files so that they're shorter and uniform.
-    for fname in os.listdir(dirpath):
-        new_fname = fname
-        if fname.startswith('accompaniment_'):
-            new_fname = re.sub('^accompaniment_(.*)', r'yts-acc_\1', fname)
-        elif fname.startswith('vocals_'):
-            new_fname = re.sub('^vocals_(.*)', r'yts-vox_\1', fname)
-
-        if (fname != new_fname):
-            shutil.move(os.path.join(dirpath, fname),
-                        os.path.join(dirpath, new_fname))
+    print(f"Processing complete. Output files in: '{output_dir}'")
+    print("Files:", os.listdir(output_dir))
 
 
 def main():
-    import argparse
-
     parser = argparse.ArgumentParser()
-
-    # This is the correct way to handle accepting multiple arguments.
-    # '+' == 1 or more.
-    # '*' == 0 or more.
-    # '?' == 0 or 1.
-    # An int is an explicit number of arguments to accept.
-    parser.add_argument('--urls', nargs='+')
-
+    parser.add_argument('--urls', nargs='+', required=True, help='YouTube URLs to download and process')
+    parser.add_argument('--po-token', help='YouTube PO token for authentication (optional, helps with DRM issues)')
+    parser.add_argument('--cookies', help='Path to cookies file for YouTube authentication (optional)')
     parsed = parser.parse_args()
 
-    # To show the results of the given option to screen.
-    for i, url in enumerate(parsed.urls):
-        if url is not None:
-            print(f"YT-SPLEET: Running url ({i}/{len(parsed.urls)}): {url}")
-            ytspleet_single_file(
-                YTSpleetSingleFileArgs(source_youtube_url=url))
+    # Set the number of processes to the number of URLs or your preferred limit
+    max_workers = len(parsed.urls)  # Or set a fixed number like 4 or 8, etc.
 
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(ytspleet_single_file, YTSpleetSingleFileArgs(url, parsed.po_token)) for url in parsed.urls]
+        for future in futures:
+            # If you need to handle results or exceptions, do it here
+            try:
+                result = future.result()  # This will block until the future is completed
+                print("Process completed successfully", result)
+            except Exception as exc:
+                print("Generated an exception: ", exc)
 
 if __name__ == "__main__":
     main()
