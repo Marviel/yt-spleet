@@ -78,13 +78,14 @@ def get_video_title(video_id: str) -> str:
         return video_id
 
 
-def run_ytdl(video_path: str, po_token: Optional[str] = None) -> str:
+def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Optional[str] = None) -> str:
     """
     Run youtube-dl to download a video and convert it to MP3.
     
     Args:
         video_path: YouTube URL to download
         po_token: Optional PO token to use for authentication
+        output_folder: Optional custom output folder path (overrides default)
         
     Returns:
         Path to the downloaded MP3 file
@@ -96,8 +97,11 @@ def run_ytdl(video_path: str, po_token: Optional[str] = None) -> str:
     # Create a clean filename with title and ID
     clean_filename = f"{video_title}-{video_id}"
     
+    # Use custom output folder if provided, otherwise use default
+    base_output_folder = output_folder if output_folder else YTSPLEET_DEFAULT_OUTPUT_FOLDER
+    
     # Create output directory structure
-    output_dir = os.path.join(YTSPLEET_DEFAULT_OUTPUT_FOLDER, clean_filename)
+    output_dir = os.path.join(base_output_folder, clean_filename)
     os.makedirs(output_dir, exist_ok=True)
     
     # Define the output MP3 path

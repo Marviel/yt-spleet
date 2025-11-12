@@ -44,14 +44,16 @@ docker run -v $(pwd)/yt-spleet-output:/src/yt-spleet-output yt-spleet --urls "ht
 
 ### Without Docker
 
-1. Install the required dependencies:
+1. Install `uv`
+
+2. Install the required dependencies:
 ```bash
-pip install yt-dlp demucs
+uv pip install yt-dlp demucs
 ```
 
 2. Run the script:
 ```bash
-python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID_1" "https://www.youtube.com/watch?v=VIDEO_ID_2"
+uv run python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID_1" "https://www.youtube.com/watch?v=VIDEO_ID_2"
 ```
 
 ## Handling YouTube DRM Issues

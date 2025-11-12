@@ -6,7 +6,7 @@ import shutil
 import time
 import subprocess
 import re
-from typing import Tuple
+from typing import Tuple, Optional
 
 from .envutils import YTSPLEET_DEFAULT_OUTPUT_FOLDER
 from .utils import log, run_subprocess_with_realtime_output
@@ -16,12 +16,13 @@ def demucs_log(*msgs: str):
     log("S2 (DEMUCS)", *msgs)
 
 
-def run_demucs(mp3_path: str) -> Tuple[str, str]:
+def run_demucs(mp3_path: str, output_folder: Optional[str] = None) -> Tuple[str, str]:
     """
     Run Demucs on the given MP3 file to separate vocals from accompaniment.
     
     Args:
         mp3_path: Path to the MP3 file to process
+        output_folder: Optional custom output folder path (overrides default)
         
     Returns:
         Tuple of (output_directory, stderr)
@@ -32,13 +33,16 @@ def run_demucs(mp3_path: str) -> Tuple[str, str]:
     track_name = os.path.splitext(os.path.basename(mp3_path))[0]
     track_dir = os.path.dirname(mp3_path)
     
+    # Use custom output folder if provided, otherwise use default
+    base_output_folder = output_folder if output_folder else YTSPLEET_DEFAULT_OUTPUT_FOLDER
+    
     # Create output directory if it doesn't exist
-    os.makedirs(YTSPLEET_DEFAULT_OUTPUT_FOLDER, exist_ok=True)
+    os.makedirs(base_output_folder, exist_ok=True)
     
     # Run Demucs with the htdemucs model (best quality for vocals)
     demucs_cmd = [
         'python3', '-m', 'demucs', 
-        '--out', YTSPLEET_DEFAULT_OUTPUT_FOLDER,
+        '--out', base_output_folder,
         '--mp3', # Output as MP3 files
         '--two-stems', 'vocals', # Split into vocals and accompaniment only
         mp3_path
@@ -57,16 +61,16 @@ def run_demucs(mp3_path: str) -> Tuple[str, str]:
         raise Exception(f"Error encountered running Demucs. Return code: {return_code}. Stderr follows: {stderr}")
     
     # Demucs creates files in a structure like:
-    # YTSPLEET_DEFAULT_OUTPUT_FOLDER/htdemucs/TRACK_NAME/vocals.mp3
-    # YTSPLEET_DEFAULT_OUTPUT_FOLDER/htdemucs/TRACK_NAME/no_vocals.mp3
+    # base_output_folder/htdemucs/TRACK_NAME/vocals.mp3
+    # base_output_folder/htdemucs/TRACK_NAME/no_vocals.mp3
     
     # Find the output files
-    demucs_output_dir = os.path.join(YTSPLEET_DEFAULT_OUTPUT_FOLDER, 'htdemucs', track_name)
+    demucs_output_dir = os.path.join(base_output_folder, 'htdemucs', track_name)
     
     if not os.path.exists(demucs_output_dir):
         demucs_log(f"Warning: Expected output directory {demucs_output_dir} not found")
         # Try to find the actual output directory
-        for root, dirs, files in os.walk(YTSPLEET_DEFAULT_OUTPUT_FOLDER):
+        for root, dirs, files in os.walk(base_output_folder):
             if os.path.basename(root) == track_name:
                 demucs_output_dir = root
                 demucs_log(f"Found alternative output directory: {demucs_output_dir}")

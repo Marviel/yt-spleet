@@ -47,6 +47,7 @@ def path_replace_in_basename(pattern: str, repl: str, full_path: str) -> str:
 @dataclass
 class YTSpleetSingleFileArgs:
     source_youtube_url: str
+    output_folder: Optional[str] = None
     po_token: Optional[str] = None
 
 
@@ -54,12 +55,12 @@ def ytspleet_single_file(args: YTSpleetSingleFileArgs):
     print("--------------------------")
     print("STARTING STEP 1: youtube-dl (YTDL)")
     print("--------------------------")
-    mp3_path = run_ytdl(args.source_youtube_url, args.po_token)
+    mp3_path = run_ytdl(args.source_youtube_url, args.po_token, args.output_folder)
 
     print("--------------------------")
     print("STARTING STEP 2: Demucs")
     print("--------------------------")
-    output_dir, _ = run_demucs(mp3_path)
+    output_dir, _ = run_demucs(mp3_path, args.output_folder)
 
     print(f"Processing complete. Output files in: '{output_dir}'")
     print("Files:", os.listdir(output_dir))
@@ -70,13 +71,14 @@ def main():
     parser.add_argument('--urls', nargs='+', required=True, help='YouTube URLs to download and process')
     parser.add_argument('--po-token', help='YouTube PO token for authentication (optional, helps with DRM issues)')
     parser.add_argument('--cookies', help='Path to cookies file for YouTube authentication (optional)')
+    parser.add_argument('-o', '--output-folder', help='Custom output folder path (optional, overrides default)')
     parsed = parser.parse_args()
 
     # Set the number of processes to the number of URLs or your preferred limit
     max_workers = len(parsed.urls)  # Or set a fixed number like 4 or 8, etc.
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(ytspleet_single_file, YTSpleetSingleFileArgs(url, parsed.po_token)) for url in parsed.urls]
+        futures = [executor.submit(ytspleet_single_file, YTSpleetSingleFileArgs(url, parsed.output_folder, parsed.po_token)) for url in parsed.urls]
         for future in futures:
             # If you need to handle results or exceptions, do it here
             try:
