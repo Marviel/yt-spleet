@@ -115,7 +115,7 @@ def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Opt
     
     # Base command with alternative clients to avoid DRM issues
     ytdl_cmd = [
-        'youtube-dl',
+        'yt-dlp',
         '-x',
         '--audio-format', 'mp3',
         '-o', os.path.join(output_dir, f"{clean_filename}.%(ext)s"),
