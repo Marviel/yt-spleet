@@ -26,7 +26,61 @@ A tool to download YouTube videos and split the audio into vocals and accompanim
 
 - Docker (recommended for easy setup)
 - Python 3.10+ (if running without Docker)
-- ffmpeg
+- ffmpeg and ffprobe
+
+## Installing FFmpeg and FFprobe
+
+FFmpeg and FFprobe are required for audio processing. Here's how to install them on different operating systems:
+
+### macOS
+
+Using Homebrew (recommended):
+```bash
+brew install ffmpeg
+```
+
+### Linux
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**Fedora:**
+```bash
+sudo dnf install ffmpeg
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S ffmpeg
+```
+
+### Windows
+
+**Option 1: Using Chocolatey (recommended)**
+```bash
+choco install ffmpeg
+```
+
+**Option 2: Manual Installation**
+1. Download FFmpeg from the [official website](https://ffmpeg.org/download.html)
+2. Extract the downloaded archive
+3. Add the `bin` folder to your system PATH environment variable
+4. Restart your terminal/command prompt
+
+### Verify Installation
+
+After installation, verify that ffmpeg and ffprobe are properly installed:
+```bash
+ffmpeg -version
+ffprobe -version
+```
+
+Both commands should display version information if installed correctly.
+
+**Note:** If you're using Docker, ffmpeg is already included in the Docker image and you don't need to install it separately.
 
 ## Usage
 
@@ -45,13 +99,14 @@ docker run -v $(pwd)/yt-spleet-output:/src/yt-spleet-output yt-spleet --urls "ht
 ### Without Docker
 
 1. Install `uv`
+2. Initialize venv: `uv venv`
 
-2. Install the required dependencies:
+3. Install the required dependencies:
 ```bash
 uv pip install yt-dlp demucs
 ```
 
-2. Run the script:
+4. Run the script:
 ```bash
 uv run python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID_1" "https://www.youtube.com/watch?v=VIDEO_ID_2"
 ```
