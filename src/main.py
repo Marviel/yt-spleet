@@ -44,6 +44,75 @@ def path_replace_in_basename(pattern: str, repl: str, full_path: str) -> str:
     return dest
 
 
+def parse_timestamp(timestamp: str) -> int:
+    """
+    Parse a timestamp string into seconds.
+    
+    Accepts formats:
+    - Seconds: "123" or "123s"
+    - MM:SS: "2:30"
+    - HH:MM:SS: "1:02:30"
+    - YouTube format: "1h30m45s", "30m", "45s"
+    
+    Returns:
+        Total seconds as integer
+    """
+    if not timestamp:
+        return 0
+    
+    # Remove trailing 's' if it's just seconds (e.g., "4399s")
+    if timestamp.endswith('s') and timestamp[:-1].isdigit():
+        return int(timestamp[:-1])
+    
+    # If it's just a number, treat as seconds
+    if timestamp.isdigit():
+        return int(timestamp)
+    
+    # Parse YouTube format like "1h30m45s", "30m45s", "45s"
+    yt_match = re.match(r'^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$', timestamp)
+    if yt_match and any(yt_match.groups()):
+        hours = int(yt_match.group(1) or 0)
+        minutes = int(yt_match.group(2) or 0)
+        seconds = int(yt_match.group(3) or 0)
+        return hours * 3600 + minutes * 60 + seconds
+    
+    # Parse HH:MM:SS or MM:SS format
+    parts = timestamp.split(':')
+    if len(parts) == 2:
+        return int(parts[0]) * 60 + int(parts[1])
+    elif len(parts) == 3:
+        return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+    else:
+        raise ValueError(f"Invalid timestamp format: {timestamp}")
+
+
+def extract_timestamp_from_url(url: str) -> Optional[str]:
+    """
+    Extract timestamp from YouTube URL if present.
+    
+    Looks for ?t= or &t= parameters in various formats:
+    - t=123 (seconds)
+    - t=123s (seconds with suffix)
+    - t=1h30m45s (YouTube format)
+    
+    Returns:
+        Timestamp string or None if not found
+    """
+    # Match t= parameter with various formats
+    match = re.search(r'[?&]t=(\d+[hms]*(?:\d+[ms]*)*(?:\d+s?)?|\d+)', url)
+    if match:
+        return match.group(1)
+    return None
+
+
+def format_timestamp(seconds: int) -> str:
+    """Convert seconds to HH:MM:SS format."""
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
 @dataclass
 class YTSpleetSingleFileArgs:
     source_youtube_url: str
@@ -51,13 +120,48 @@ class YTSpleetSingleFileArgs:
     po_token: Optional[str] = None
     dl_only: bool = False
     split_chapters: bool = False
+    timestamp: Optional[str] = None
+    window: Optional[int] = None  # minutes on each side (None = no extraction)
 
 
 def ytspleet_single_file(args: YTSpleetSingleFileArgs):
     print("--------------------------")
     print("STARTING STEP 1: youtube-dl (YTDL)")
     print("--------------------------")
-    mp3_path = run_ytdl(args.source_youtube_url, args.po_token, args.output_folder, args.split_chapters)
+    
+    # Calculate time range if timestamp/window extraction is requested
+    time_range = None
+    timestamp = args.timestamp
+    window = args.window
+    
+    # If window is set but no timestamp, try to extract timestamp from URL
+    if window is not None and not timestamp:
+        url_timestamp = extract_timestamp_from_url(args.source_youtube_url)
+        if url_timestamp:
+            timestamp = url_timestamp
+            print(f"Found timestamp in URL: {timestamp}")
+        else:
+            print(f"Warning: --window specified but no timestamp found in URL. Use --timestamp to specify.")
+    
+    # If we have a timestamp and window, calculate the time range
+    if timestamp and window is not None:
+        center_seconds = parse_timestamp(timestamp)
+        window_seconds = window * 60
+        start_seconds = max(0, center_seconds - window_seconds)
+        end_seconds = center_seconds + window_seconds
+        time_range = (format_timestamp(start_seconds), format_timestamp(end_seconds))
+        print(f"Extracting time range: {time_range[0]} to {time_range[1]} (centered on {timestamp}, ±{window}min)")
+    elif timestamp and window is None:
+        # Timestamp provided but no window - default to 4 minutes each side
+        window = 4
+        center_seconds = parse_timestamp(timestamp)
+        window_seconds = window * 60
+        start_seconds = max(0, center_seconds - window_seconds)
+        end_seconds = center_seconds + window_seconds
+        time_range = (format_timestamp(start_seconds), format_timestamp(end_seconds))
+        print(f"Extracting time range: {time_range[0]} to {time_range[1]} (centered on {timestamp}, ±{window}min)")
+    
+    mp3_path = run_ytdl(args.source_youtube_url, args.po_token, args.output_folder, args.split_chapters, time_range)
 
     if args.dl_only or args.split_chapters:
         print("--------------------------")
@@ -119,6 +223,8 @@ def main():
     parser.add_argument('--dl-only', action='store_true', help='Only download audio, skip stem separation')
     parser.add_argument('--full-playlist', action='store_true', help='Download all videos from playlist URLs')
     parser.add_argument('--split-chapters', action='store_true', help='Split video into separate files by chapter (implies --dl-only)')
+    parser.add_argument('--timestamp', '-t', help='Center timestamp for extraction (formats: "123", "2:30", "1:02:30", or auto-detected from URL)')
+    parser.add_argument('--window', '-w', type=int, default=None, help='Minutes on each side of timestamp (default: 4 when -t used). Enables URL timestamp detection.')
     parsed = parser.parse_args()
 
     # Expand playlist URLs if requested
@@ -129,7 +235,10 @@ def main():
     max_workers = len(urls)  # Or set a fixed number like 4 or 8, etc.
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(ytspleet_single_file, YTSpleetSingleFileArgs(url, parsed.output_folder, parsed.po_token, parsed.dl_only, parsed.split_chapters)) for url in urls]
+        futures = [executor.submit(ytspleet_single_file, YTSpleetSingleFileArgs(
+            url, parsed.output_folder, parsed.po_token, parsed.dl_only, 
+            parsed.split_chapters, parsed.timestamp, parsed.window
+        )) for url in urls]
         for future in futures:
             # If you need to handle results or exceptions, do it here
             try:

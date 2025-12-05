@@ -118,7 +118,7 @@ def get_video_title(video_id: str) -> str:
         return video_id
 
 
-def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Optional[str] = None, split_chapters: bool = False) -> str:
+def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Optional[str] = None, split_chapters: bool = False, time_range: Optional[Tuple[str, str]] = None) -> str:
     """
     Run youtube-dl to download a video and convert it to MP3.
     
@@ -127,6 +127,7 @@ def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Opt
         po_token: Optional PO token to use for authentication
         output_folder: Optional custom output folder path (overrides default)
         split_chapters: Split video into separate files by chapter
+        time_range: Optional tuple of (start_time, end_time) in HH:MM:SS format
         
     Returns:
         Path to the downloaded MP3 file (or output directory if split_chapters is True)
@@ -138,10 +139,21 @@ def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Opt
     # Create a clean filename with title and ID
     clean_filename = f"{video_title}-{video_id}"
     
+    # Add time range suffix if specified (so it doesn't conflict with full video)
+    if time_range:
+        # Convert HH:MM:SS to compact format like "01h09m19s"
+        def compact_time(t: str) -> str:
+            parts = t.split(':')
+            return f"{parts[0]}h{parts[1]}m{parts[2]}s"
+        time_suffix = f"_{compact_time(time_range[0])}-{compact_time(time_range[1])}"
+        file_basename = f"{clean_filename}{time_suffix}"
+    else:
+        file_basename = clean_filename
+    
     # Use custom output folder if provided, otherwise use default
     base_output_folder = output_folder if output_folder else YTSPLEET_DEFAULT_OUTPUT_FOLDER
     
-    # Create output directory structure
+    # Create output directory structure (use clean_filename for folder, not time-suffixed)
     output_dir = os.path.join(base_output_folder, clean_filename)
     os.makedirs(output_dir, exist_ok=True)
     
@@ -149,12 +161,12 @@ def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Opt
     if split_chapters:
         # For chapter splits, use chapter: prefix to control output location
         # The temp file goes to output_dir, and chapter files use section_title
-        temp_template = os.path.join(output_dir, f"{clean_filename}.%(ext)s")
+        temp_template = os.path.join(output_dir, f"{file_basename}.%(ext)s")
         chapter_template = os.path.join(output_dir, f"%(section_number)03d - %(section_title)s.%(ext)s")
         mp3_path = output_dir  # Return directory when splitting chapters
     else:
-        output_template = os.path.join(output_dir, f"{clean_filename}.%(ext)s")
-        mp3_path = os.path.join(output_dir, f"{clean_filename}.mp3")
+        output_template = os.path.join(output_dir, f"{file_basename}.%(ext)s")
+        mp3_path = os.path.join(output_dir, f"{file_basename}.mp3")
         mp3_path = os.path.abspath(mp3_path)
         
         # If the file already exists, return its path
@@ -179,12 +191,19 @@ def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Opt
     else:
         ytdl_cmd.extend(['-o', output_template])
     
+    # Add time range extraction if specified
+    if time_range:
+        start_time, end_time = time_range
+        ytdl_cmd.extend(['--download-sections', f'*{start_time}-{end_time}'])
+    
     # Add PO token if provided
     if po_token:
         ytdl_cmd.extend(['--extractor-args', f'youtube:player-skip=js,po_token={po_token}'])
     
     # Download the video and convert to MP3
     ytdl_log(f"Downloading video: {video_title} ({video_id})")
+    if time_range:
+        ytdl_log(f"Extracting section: {time_range[0]} to {time_range[1]}")
     if split_chapters:
         ytdl_log("Splitting by chapters...")
     

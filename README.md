@@ -120,6 +120,8 @@ uv run python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID_1" "h
 | `--dl-only` | Only download audio, skip stem separation |
 | `--full-playlist` | Download all videos from playlist URLs |
 | `--split-chapters` | Split video into separate files by chapter (implies download-only) |
+| `-t, --timestamp` | Center timestamp for time-range extraction (e.g., "1:23:45", "5000", "1h30m") |
+| `-w, --window` | Minutes on each side of timestamp (default: 4). Enables auto-detection of `t=` in URL |
 | `--po-token` | YouTube PO token for authentication (helps with DRM issues) |
 | `--cookies` | Path to cookies file for YouTube authentication |
 
@@ -138,6 +140,18 @@ python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID&list=PLAYLIS
 **Split a video by chapters (e.g., DJ sets, albums):**
 ```bash
 python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" --split-chapters
+```
+
+**Extract a time range around a timestamp (±4 minutes = 8 min total):**
+```bash
+# Explicit timestamp
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" --timestamp "1:23:45"
+
+# Auto-detect timestamp from URL (uses t= parameter)
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID&t=4399s" --window 4
+
+# Custom window size (±10 minutes = 20 min total)
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" --timestamp "45:00" --window 10
 ```
 
 **Combine options - download entire playlist, split each video by chapters:**
