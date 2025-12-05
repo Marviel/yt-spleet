@@ -43,6 +43,46 @@ def get_video_id(url: str) -> str:
     return video_id
 
 
+def get_playlist_video_urls(url: str) -> list[str]:
+    """
+    Extract all video URLs from a YouTube playlist URL.
+    
+    Args:
+        url: YouTube URL (may contain a playlist parameter)
+        
+    Returns:
+        List of individual video URLs from the playlist
+    """
+    ytdl_log(f"Extracting playlist videos from: {url}")
+    
+    # Use yt-dlp to get playlist info as JSON
+    cmd = [
+        'yt-dlp',
+        '--flat-playlist',  # Don't download, just get info
+        '--dump-json',      # Output JSON for each video
+        url
+    ]
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        
+        video_urls = []
+        # Each line is a separate JSON object for each video in the playlist
+        for line in result.stdout.strip().split('\n'):
+            if line:
+                video_info = json.loads(line)
+                video_id = video_info.get('id')
+                if video_id:
+                    video_urls.append(f"https://www.youtube.com/watch?v={video_id}")
+        
+        ytdl_log(f"Found {len(video_urls)} videos in playlist")
+        return video_urls
+        
+    except subprocess.CalledProcessError as e:
+        ytdl_log(f"Error extracting playlist: {e.stderr}")
+        raise Exception(f"Failed to extract playlist videos: {e.stderr}")
+
+
 def get_video_title(video_id: str) -> str:
     """
     Get the title of a YouTube video using the oEmbed API.
@@ -78,7 +118,7 @@ def get_video_title(video_id: str) -> str:
         return video_id
 
 
-def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Optional[str] = None) -> str:
+def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Optional[str] = None, split_chapters: bool = False) -> str:
     """
     Run youtube-dl to download a video and convert it to MP3.
     
@@ -86,9 +126,10 @@ def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Opt
         video_path: YouTube URL to download
         po_token: Optional PO token to use for authentication
         output_folder: Optional custom output folder path (overrides default)
+        split_chapters: Split video into separate files by chapter
         
     Returns:
-        Path to the downloaded MP3 file
+        Path to the downloaded MP3 file (or output directory if split_chapters is True)
     """
     # Extract video ID and get title
     video_id = get_video_id(video_path)
@@ -104,24 +145,39 @@ def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Opt
     output_dir = os.path.join(base_output_folder, clean_filename)
     os.makedirs(output_dir, exist_ok=True)
     
-    # Define the output MP3 path
-    mp3_path = os.path.join(output_dir, f"{clean_filename}.mp3")
-    mp3_path = os.path.abspath(mp3_path)
-    
-    # If the file already exists, return its path
-    if os.path.exists(mp3_path):
-        ytdl_log(f"File already exists: {mp3_path}")
-        return mp3_path
+    # Define the output template based on whether we're splitting chapters
+    if split_chapters:
+        # For chapter splits, use chapter: prefix to control output location
+        # The temp file goes to output_dir, and chapter files use section_title
+        temp_template = os.path.join(output_dir, f"{clean_filename}.%(ext)s")
+        chapter_template = os.path.join(output_dir, f"%(section_number)03d - %(section_title)s.%(ext)s")
+        mp3_path = output_dir  # Return directory when splitting chapters
+    else:
+        output_template = os.path.join(output_dir, f"{clean_filename}.%(ext)s")
+        mp3_path = os.path.join(output_dir, f"{clean_filename}.mp3")
+        mp3_path = os.path.abspath(mp3_path)
+        
+        # If the file already exists, return its path
+        if os.path.exists(mp3_path):
+            ytdl_log(f"File already exists: {mp3_path}")
+            return mp3_path
     
     # Base command with alternative clients to avoid DRM issues
     ytdl_cmd = [
         'yt-dlp',
         '-x',
         '--audio-format', 'mp3',
-        '-o', os.path.join(output_dir, f"{clean_filename}.%(ext)s"),
         '--extractor-args',
         'youtube:player-client=default,-tv,web_safari,web_embedded',  # Use alternative clients, avoid TV client
     ]
+    
+    # Add output template(s)
+    if split_chapters:
+        ytdl_cmd.extend(['-o', temp_template])
+        ytdl_cmd.extend(['-o', f'chapter:{chapter_template}'])
+        ytdl_cmd.append('--split-chapters')
+    else:
+        ytdl_cmd.extend(['-o', output_template])
     
     # Add PO token if provided
     if po_token:
@@ -129,6 +185,8 @@ def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Opt
     
     # Download the video and convert to MP3
     ytdl_log(f"Downloading video: {video_title} ({video_id})")
+    if split_chapters:
+        ytdl_log("Splitting by chapters...")
     
     # Run the download command with real-time output
     return_code, stdout, stderr = run_subprocess_with_realtime_output(
@@ -138,26 +196,52 @@ def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Opt
     )
     
     # Check if the download was successful
-    if not os.path.exists(mp3_path) and return_code != 0:
-        # If download failed, try with cookies if available
-        ytdl_log("Initial download failed. Trying with cookies if available...")
-        cookies_path = os.path.expanduser("~/.config/yt-dlp/cookies.txt")
-        
-        if os.path.exists(cookies_path):
-            ytdl_log("Found cookies file, retrying with cookies...")
-            ytdl_cmd.extend(['--cookies', cookies_path])
+    if split_chapters:
+        # For chapter splits, check if any mp3 files were created in the output directory
+        mp3_files = glob.glob(os.path.join(output_dir, "*.mp3"))
+        if not mp3_files and return_code != 0:
+            # Try with cookies
+            ytdl_log("Initial download failed. Trying with cookies if available...")
+            cookies_path = os.path.expanduser("~/.config/yt-dlp/cookies.txt")
             
-            return_code, stdout, stderr = run_subprocess_with_realtime_output(
-                ytdl_cmd + [video_path],
-                ytdl_log,
-                "YTDL (with cookies)"
-            )
-    
-    # Check if the file exists now (after download attempts)
-    if os.path.exists(mp3_path):
-        ytdl_log(f"Successfully downloaded: {mp3_path}")
-        return mp3_path
+            if os.path.exists(cookies_path):
+                ytdl_log("Found cookies file, retrying with cookies...")
+                ytdl_cmd.extend(['--cookies', cookies_path])
+                
+                return_code, stdout, stderr = run_subprocess_with_realtime_output(
+                    ytdl_cmd + [video_path],
+                    ytdl_log,
+                    "YTDL (with cookies)"
+                )
+                mp3_files = glob.glob(os.path.join(output_dir, "*.mp3"))
+        
+        if mp3_files:
+            ytdl_log(f"Successfully downloaded {len(mp3_files)} chapter(s) to: {output_dir}")
+            return output_dir
+        else:
+            raise Exception(
+                f"Error encountered running youtube-dl. No mp3 files found in {output_dir}. Return code: {return_code}. Stderr follows: {stderr}")
     else:
-        # If still failed, raise exception
-        raise Exception(
-            f"Error encountered running youtube-dl. mp3_path not found after youtube-dl: {mp3_path}. Return code: {return_code}. Stderr follows: {stderr}")
+        if not os.path.exists(mp3_path) and return_code != 0:
+            # If download failed, try with cookies if available
+            ytdl_log("Initial download failed. Trying with cookies if available...")
+            cookies_path = os.path.expanduser("~/.config/yt-dlp/cookies.txt")
+            
+            if os.path.exists(cookies_path):
+                ytdl_log("Found cookies file, retrying with cookies...")
+                ytdl_cmd.extend(['--cookies', cookies_path])
+                
+                return_code, stdout, stderr = run_subprocess_with_realtime_output(
+                    ytdl_cmd + [video_path],
+                    ytdl_log,
+                    "YTDL (with cookies)"
+                )
+        
+        # Check if the file exists now (after download attempts)
+        if os.path.exists(mp3_path):
+            ytdl_log(f"Successfully downloaded: {mp3_path}")
+            return mp3_path
+        else:
+            # If still failed, raise exception
+            raise Exception(
+                f"Error encountered running youtube-dl. mp3_path not found after youtube-dl: {mp3_path}. Return code: {return_code}. Stderr follows: {stderr}")

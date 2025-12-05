@@ -111,6 +111,45 @@ uv pip install yt-dlp demucs
 uv run python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID_1" "https://www.youtube.com/watch?v=VIDEO_ID_2"
 ```
 
+## Command Line Options
+
+| Option | Description |
+|--------|-------------|
+| `--urls` | YouTube URLs to download and process (required, accepts multiple) |
+| `-o, --output-folder` | Custom output folder path (optional, overrides default) |
+| `--dl-only` | Only download audio, skip stem separation |
+| `--full-playlist` | Download all videos from playlist URLs |
+| `--split-chapters` | Split video into separate files by chapter (implies download-only) |
+| `--po-token` | YouTube PO token for authentication (helps with DRM issues) |
+| `--cookies` | Path to cookies file for YouTube authentication |
+
+### Examples
+
+**Download only (no stem separation):**
+```bash
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" --dl-only
+```
+
+**Download an entire playlist:**
+```bash
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID&list=PLAYLIST_ID" --full-playlist
+```
+
+**Split a video by chapters (e.g., DJ sets, albums):**
+```bash
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" --split-chapters
+```
+
+**Combine options - download entire playlist, split each video by chapters:**
+```bash
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID&list=PLAYLIST_ID" --full-playlist --split-chapters
+```
+
+**Custom output folder:**
+```bash
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" -o /path/to/my/music
+```
+
 ## Handling YouTube DRM Issues
 
 YouTube has been experimenting with applying DRM to videos when accessed through certain clients. If you encounter download issues, you can try the following solutions:
