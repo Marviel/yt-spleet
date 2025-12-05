@@ -264,3 +264,154 @@ def run_ytdl(video_path: str, po_token: Optional[str] = None, output_folder: Opt
             # If still failed, raise exception
             raise Exception(
                 f"Error encountered running youtube-dl. mp3_path not found after youtube-dl: {mp3_path}. Return code: {return_code}. Stderr follows: {stderr}")
+
+
+def format_seconds_to_timestamp(seconds: int) -> str:
+    """Convert seconds to HH:MM:SS format."""
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
+def split_audio_with_ffmpeg(input_path: str, output_path: str, start_seconds: int, end_seconds: int) -> bool:
+    """
+    Split an audio file using ffmpeg with stream copy (no re-encoding = fast).
+    
+    Args:
+        input_path: Path to input audio file
+        output_path: Path for output audio file
+        start_seconds: Start time in seconds
+        end_seconds: End time in seconds
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    duration = end_seconds - start_seconds
+    
+    cmd = [
+        'ffmpeg',
+        '-y',  # Overwrite output
+        '-i', input_path,
+        '-ss', str(start_seconds),
+        '-t', str(duration),
+        '-c', 'copy',  # Stream copy = no re-encoding = FAST
+        output_path
+    ]
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return result.returncode == 0
+    except Exception as e:
+        ytdl_log(f"ffmpeg error: {e}")
+        return False
+
+
+def run_ytdl_tracklist(video_path: str, tracklist, po_token: Optional[str] = None, output_folder: Optional[str] = None) -> str:
+    """
+    Download full video once, then split into tracks locally with ffmpeg.
+    Much faster than downloading each track separately!
+    
+    Args:
+        video_path: YouTube URL to download
+        tracklist: Tracklist object with tracks to download
+        po_token: Optional PO token for authentication
+        output_folder: Optional custom output folder path
+        
+    Returns:
+        Path to the output directory containing all track files
+    """
+    # Extract video ID and get title
+    video_id = get_video_id(video_path)
+    video_title = get_video_title(video_id)
+    
+    # Create a clean filename with title and ID
+    clean_filename = f"{video_title}-{video_id}"
+    
+    # Use custom output folder if provided, otherwise use default
+    base_output_folder = output_folder if output_folder else YTSPLEET_DEFAULT_OUTPUT_FOLDER
+    
+    # Create output directory structure
+    output_dir = os.path.join(base_output_folder, clean_filename)
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Step 1: Download full audio once
+    full_audio_path = os.path.join(output_dir, f"{clean_filename}_full.mp3")
+    
+    if os.path.exists(full_audio_path):
+        ytdl_log(f"Full audio already exists: {full_audio_path}")
+    else:
+        ytdl_log(f"Downloading full audio: {video_title}")
+        
+        ytdl_cmd = [
+            'yt-dlp',
+            '-x',
+            '--audio-format', 'mp3',
+            '-o', full_audio_path.replace('.mp3', '.%(ext)s'),
+            '--extractor-args',
+            'youtube:player-client=default,-tv,web_safari,web_embedded',
+        ]
+        
+        if po_token:
+            ytdl_cmd.extend(['--extractor-args', f'youtube:player-skip=js,po_token={po_token}'])
+        
+        return_code, stdout, stderr = run_subprocess_with_realtime_output(
+            ytdl_cmd + [video_path],
+            ytdl_log,
+            "YTDL (full)"
+        )
+        
+        if return_code != 0 or not os.path.exists(full_audio_path):
+            raise Exception(f"Failed to download full audio: {stderr}")
+    
+    ytdl_log(f"Splitting into {len(tracklist.tracks)} tracks...")
+    
+    # Step 2: Build track list with times
+    tracks_with_times = []
+    for i, track in enumerate(tracklist.tracks):
+        if track.start_seconds < 0:
+            ytdl_log(f"Skipping track {track.number} '{track.title}' - no timestamp")
+            continue
+            
+        start_seconds = track.start_seconds
+        
+        # End time is the start of the next track, or +10 minutes for last track
+        if i + 1 < len(tracklist.tracks) and tracklist.tracks[i + 1].start_seconds >= 0:
+            end_seconds = tracklist.tracks[i + 1].start_seconds
+        else:
+            end_seconds = start_seconds + 600  # 10 minutes for last track
+        
+        tracks_with_times.append((track, start_seconds, end_seconds))
+    
+    # Step 3: Split with ffmpeg (very fast - no re-encoding)
+    successful = 0
+    for track, start_secs, end_secs in tracks_with_times:
+        # Create filename for this track
+        artist_part = f"{track.artist} - " if track.artist else ""
+        track_filename = f"{track.number:03d} - {artist_part}{track.title}"
+        # Clean filename
+        track_filename = re.sub(r'[^\w\s\-\.]', '', track_filename)
+        
+        track_path = os.path.join(output_dir, f"{track_filename}.mp3")
+        
+        # Skip if already exists
+        if os.path.exists(track_path):
+            ytdl_log(f"Track exists: {track_filename}")
+            successful += 1
+            continue
+        
+        start_ts = format_seconds_to_timestamp(start_secs)
+        end_ts = format_seconds_to_timestamp(end_secs)
+        ytdl_log(f"Splitting track {track.number}: {track.title} ({start_ts} - {end_ts})")
+        
+        if split_audio_with_ffmpeg(full_audio_path, track_path, start_secs, end_secs):
+            successful += 1
+        else:
+            ytdl_log(f"Warning: Failed to split track {track.number}: {track.title}")
+    
+    ytdl_log(f"Successfully created {successful} track(s) in: {output_dir}")
+    
+    # Optionally remove the full audio file to save space
+    # os.remove(full_audio_path)
+    
+    return output_dir

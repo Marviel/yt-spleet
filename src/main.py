@@ -1,21 +1,12 @@
-from typing import Tuple, Optional
+from typing import Optional
 import re
-import subprocess
-import time
-import shutil
-import glob
-import sys
 import os
 from dataclasses import dataclass
-from lib.ytdl import run_ytdl, get_playlist_video_urls
-from lib.demucs_processor import run_demucs
-import argparse
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
-import os
-import sys
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.dirname(SCRIPT_DIR))
+import argparse
+
+from src.lib.ytdl import run_ytdl, get_playlist_video_urls, run_ytdl_tracklist
+from src.lib.demucs_processor import run_demucs
 
 
 # DEBUG
@@ -122,9 +113,48 @@ class YTSpleetSingleFileArgs:
     split_chapters: bool = False
     timestamp: Optional[str] = None
     window: Optional[int] = None  # minutes on each side (None = no extraction)
+    guess_chapters: bool = False
+    llm_model: str = "gpt-5-mini"
 
 
 def ytspleet_single_file(args: YTSpleetSingleFileArgs):
+    # Handle --guess-chapters mode (parse tracklist from comment)
+    if args.guess_chapters:
+        print("--------------------------")
+        print("GUESS CHAPTERS MODE: Parsing tracklist from YouTube comment")
+        print("--------------------------")
+        
+        from src.lib.tracklist_parser import parse_tracklist_from_url
+        
+        tracklist = parse_tracklist_from_url(
+            args.source_youtube_url,
+            model=args.llm_model
+        )
+        
+        # Print parsed tracklist
+        print("\nParsed tracklist:")
+        for track in tracklist.tracks:
+            artist = f"{track.artist} - " if track.artist else ""
+            print(f"  {track.number:3d}. {artist}{track.title} @ {track.start_time}")
+        print()
+        
+        print("--------------------------")
+        print("DOWNLOADING TRACKS")
+        print("--------------------------")
+        
+        output_dir = run_ytdl_tracklist(
+            args.source_youtube_url,
+            tracklist,
+            args.po_token,
+            args.output_folder
+        )
+        
+        print("--------------------------")
+        print("Download complete (--guess-chapters mode)")
+        print("--------------------------")
+        print(f"Output: '{output_dir}'")
+        return
+    
     print("--------------------------")
     print("STARTING STEP 1: youtube-dl (YTDL)")
     print("--------------------------")
@@ -225,6 +255,8 @@ def main():
     parser.add_argument('--split-chapters', action='store_true', help='Split video into separate files by chapter (implies --dl-only)')
     parser.add_argument('--timestamp', '-t', help='Center timestamp for extraction (formats: "123", "2:30", "1:02:30", or auto-detected from URL)')
     parser.add_argument('--window', '-w', type=int, default=None, help='Minutes on each side of timestamp (default: 4 when -t used). Enables URL timestamp detection.')
+    parser.add_argument('--guess-chapters', action='store_true', help='Parse tracklist from YouTube comment using AI (requires OPENAI_API_KEY)')
+    parser.add_argument('--llm-model', default='gpt-5-mini', help='LLM model for tracklist parsing (default: gpt-5-mini)')
     parsed = parser.parse_args()
 
     # Expand playlist URLs if requested
@@ -237,7 +269,8 @@ def main():
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(ytspleet_single_file, YTSpleetSingleFileArgs(
             url, parsed.output_folder, parsed.po_token, parsed.dl_only, 
-            parsed.split_chapters, parsed.timestamp, parsed.window
+            parsed.split_chapters, parsed.timestamp, parsed.window,
+            parsed.guess_chapters, parsed.llm_model
         )) for url in urls]
         for future in futures:
             # If you need to handle results or exceptions, do it here

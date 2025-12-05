@@ -1,6 +1,17 @@
 *.pyc
+__pycache__/
 pretrained_models/*
 pretrained
 *.mp3
 .DS_Store
 node_modules
+
+.env*
+
+# Python/uv
+.venv/
+.python-version
+uv.lock
+*.egg-info/
+dist/
+build/

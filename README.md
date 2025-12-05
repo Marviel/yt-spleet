@@ -98,17 +98,21 @@ docker run -v $(pwd)/yt-spleet-output:/src/yt-spleet-output yt-spleet --urls "ht
 
 ### Without Docker
 
-1. Install `uv`
-2. Initialize venv: `uv venv`
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
-3. Install the required dependencies:
+2. Install dependencies and set up venv:
 ```bash
-uv pip install yt-dlp demucs
+uv sync
 ```
 
-4. Run the script:
+3. Run the script:
 ```bash
 uv run python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID_1" "https://www.youtube.com/watch?v=VIDEO_ID_2"
+```
+
+Or use the installed command:
+```bash
+uv run yt-spleet --urls "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
 ## Command Line Options
@@ -122,6 +126,8 @@ uv run python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID_1" "h
 | `--split-chapters` | Split video into separate files by chapter (implies download-only) |
 | `-t, --timestamp` | Center timestamp for time-range extraction (e.g., "1:23:45", "5000", "1h30m") |
 | `-w, --window` | Minutes on each side of timestamp (default: 4). Enables auto-detection of `t=` in URL |
+| `--guess-chapters` | Parse tracklist from YouTube comment using AI (requires `OPENAI_API_KEY` env var) |
+| `--llm-model` | LLM model for tracklist parsing (default: gpt-5-mini) |
 | `--po-token` | YouTube PO token for authentication (helps with DRM issues) |
 | `--cookies` | Path to cookies file for YouTube authentication |
 
@@ -152,6 +158,19 @@ python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID&t=4399s" --w
 
 # Custom window size (±10 minutes = 20 min total)
 python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" --timestamp "45:00" --window 10
+```
+
+**Parse tracklist from comments using AI (for DJ sets, compilations):**
+```bash
+# Auto-find tracklist in comments
+export OPENAI_API_KEY="your-key"
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" --guess-chapters
+
+# With specific comment link (lc= parameter)
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID&lc=COMMENT_ID" --guess-chapters
+
+# Use a different model
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" --guess-chapters --llm-model gpt-4o
 ```
 
 **Combine options - download entire playlist, split each video by chapters:**
