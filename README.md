@@ -170,7 +170,7 @@ python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" --guess-cha
 python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID&lc=COMMENT_ID" --guess-chapters
 
 # Use a different model
-python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" --guess-chapters --llm-model gpt-4o
+python src/main.py --urls "https://www.youtube.com/watch?v=VIDEO_ID" --guess-chapters --llm-model gpt-5
 ```
 
 **Combine options - download entire playlist, split each video by chapters:**

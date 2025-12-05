@@ -109,6 +109,38 @@ def fetch_youtube_comment_via_ytdlp(url: str, comment_id: Optional[str] = None) 
         raise Exception(f"Failed to fetch comments: {e.stderr}")
 
 
+def parse_timestamp_to_seconds(timestamp: str) -> int:
+    """
+    Convert a timestamp string to total seconds.
+    
+    Handles formats:
+    - "0:00" -> 0
+    - "1:30" -> 90
+    - "1:23:45" -> 5025
+    
+    Args:
+        timestamp: Time string in MM:SS or H:MM:SS format
+        
+    Returns:
+        Total seconds as integer, or -1 if parsing fails
+    """
+    if not timestamp:
+        return -1
+    
+    try:
+        parts = timestamp.split(':')
+        if len(parts) == 2:
+            # MM:SS format
+            return int(parts[0]) * 60 + int(parts[1])
+        elif len(parts) == 3:
+            # H:MM:SS format
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+        else:
+            return -1
+    except (ValueError, IndexError):
+        return -1
+
+
 def parse_tracklist_with_llm(comment_text: str, model: str = "gpt-5-mini") -> Tracklist:
     """
     Use LiteLLM to parse a tracklist from comment text.
@@ -125,6 +157,8 @@ def parse_tracklist_with_llm(comment_text: str, model: str = "gpt-5-mini") -> Tr
     except ImportError:
         raise ImportError("litellm is required for --guess-chapters. Install with: pip install litellm")
     
+    # Note: We only ask for start_time, we compute start_seconds ourselves
+    # because LLMs are bad at math!
     system_prompt = """You are a tracklist parser. Given a comment containing a tracklist/setlist, extract all tracks with their timestamps.
 
 Return a JSON object with this exact structure:
@@ -134,19 +168,17 @@ Return a JSON object with this exact structure:
       "number": 1,
       "title": "Track Title",
       "artist": "Artist Name or null if not specified",
-      "start_time": "0:00",
-      "start_seconds": 0
+      "start_time": "0:00"
     }
   ]
 }
 
 Rules:
-- Convert all timestamps to start_seconds (total seconds from start)
-- Keep start_time in original format from the comment
+- Keep start_time EXACTLY as written in the comment (e.g. "1:23:45" or "45:30")
 - If artist is combined with title (e.g. "Artist - Title"), split them
 - If only title is given, set artist to null
 - Include ALL tracks, even if some say "Unreleased" or "ID"
-- If a track has no timestamp, use null for start_time and -1 for start_seconds
+- If a track has no timestamp, use null for start_time
 - Return ONLY valid JSON, no markdown or explanation"""
 
     user_prompt = f"""Parse this tracklist comment:
@@ -167,12 +199,16 @@ Rules:
     
     tracks = []
     for t in result.get('tracks', []):
+        start_time = t.get('start_time', '0:00')
+        # Compute start_seconds ourselves - don't trust LLM math!
+        start_seconds = parse_timestamp_to_seconds(start_time) if start_time else -1
+        
         tracks.append(Track(
             number=t.get('number', 0),
             title=t.get('title', 'Unknown'),
             artist=t.get('artist'),
-            start_time=t.get('start_time', '0:00'),
-            start_seconds=t.get('start_seconds', 0)
+            start_time=start_time or '0:00',
+            start_seconds=start_seconds
         ))
     
     return Tracklist(tracks=tracks)
